@@ -1,22 +1,39 @@
-const jwt = require('jsonwebtoken');
+/**
+ * Authentication Middleware
+ * Verifies the JWT token and adds the user to the request object
+ */
 
-module.exports = (req, res, next) => {
-  // Get token from header
-  const token = req.header('x-auth-token');
-  
-  // Check if no token
-  if (!token) {
-    return res.status(401).json({ message: 'No token, authorization denied' });
-  }
-  
+const supabase = require('../config/supabase');
+
+/**
+ * Authentication middleware to protect routes
+ * Verifies JWT token from Authorization header
+ */
+const authMiddleware = async (req, res, next) => {
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+    // Get token from header
+    const authHeader = req.headers.authorization;
     
-    // Add user from payload
-    req.user = decoded;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization token required' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    
+    // Verify token with Supabase
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data.user) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+    
+    // Add user to request object
+    req.user = data.user;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token is not valid' });
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ message: 'Authentication failed' });
   }
-}; 
+};
+
+module.exports = authMiddleware; 

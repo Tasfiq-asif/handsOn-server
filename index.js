@@ -1,53 +1,63 @@
+/**
+ * HandsOn API Server
+ * Main entry point for the backend application
+ */
+
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { Pool } = require('pg');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
+require('./config/supabase'); // Import Supabase for initialization
 
 // Load environment variables
 dotenv.config();
 
-// Create Express app
+// Import routes
+const userRoutes = require('./routes/userRoutes');
+const authRoutes = require('./routes/auth');
+const protectedRoutes = require('./routes/protected');
+
+// Initialize Express app
 const app = express();
 
 // Middleware
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
-// Database connection
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'handsOn',
-  password: process.env.DB_PASSWORD || 'postgres',
-  port: process.env.DB_PORT || 5432,
-});
+// Log the CORS configuration
+console.log('CORS origin:', process.env.CLIENT_URL || 'http://localhost:5173');
 
-// Test database connection
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Error connecting to the database:', err);
-  } else {
-    console.log('Database connected successfully at:', res.rows[0].now);
-  }
-});
+app.use(cors({
+  origin: [
+    process.env.CLIENT_URL || 'http://localhost:5173', 
+    'http://localhost:5174'  // Add backup port
+  ],
+  credentials: true // Important for cookies
+}));
+
+
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to the API' });
+  res.json({ message: 'HandsOn API is running' });
 });
 
-// Auth routes
-const authRoutes = require('./routes/auth');
+// API Routes
+app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
-
-// Protected routes
-const protectedRoutes = require('./routes/protected');
 app.use('/api', protectedRoutes);
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'production' ? null : err.message
+  });
+});
+
+// Start the server
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});
