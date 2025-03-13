@@ -16,6 +16,9 @@ const eventController = {
       const userId = req.user.id;
       const eventData = req.body;
       
+      console.log('Creating event with data:', JSON.stringify(eventData));
+      console.log('Creator ID:', userId);
+      
       // Validate required fields
       if (!eventData.title || !eventData.description) {
         return res.status(400).json({ message: 'Please provide a title and description' });
@@ -32,15 +35,27 @@ const eventController = {
         }
       }
       
-      const event = await eventModel.createEvent(eventData, userId);
-      
-      res.status(201).json({
-        success: true,
-        event
-      });
+      try {
+        const event = await eventModel.createEvent(eventData, userId);
+        
+        res.status(201).json({
+          success: true,
+          event
+        });
+      } catch (dbError) {
+        console.error('Database error when creating event:', dbError);
+        return res.status(500).json({ 
+          message: 'Database error when creating event', 
+          error: dbError.message,
+          details: dbError.details || 'No additional details'
+        });
+      }
     } catch (error) {
       console.error('Create event error:', error);
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ 
+        message: 'Server error while creating event',
+        error: error.message
+      });
     }
   },
   
@@ -106,23 +121,65 @@ const eventController = {
   async updateEvent(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
       const updates = req.body;
+      const userId = req.user.id;
       
-      const event = await eventModel.updateEvent(id, updates, userId);
+      console.log('Update event request received:');
+      console.log('Event ID:', id);
+      console.log('Event ID type:', typeof id);
+      console.log('Event ID length:', id.length);
+      console.log('User ID from request:', userId);
+      console.log('User ID type:', typeof userId);
+      console.log('Update payload:', JSON.stringify(updates));
+      console.log('User object:', JSON.stringify(req.user));
       
-      res.status(200).json({
-        success: true,
-        event
-      });
-    } catch (error) {
-      // Handle authorization error separately
-      if (error.message.includes('not authorized')) {
-        return res.status(403).json({ message: error.message });
+      // Ensure data types are correct
+      const sanitizedUpdates = {
+        ...updates
+      };
+      
+      // Convert capacity to number if present
+      if (sanitizedUpdates.capacity !== undefined && sanitizedUpdates.capacity !== null) {
+        sanitizedUpdates.capacity = Number(sanitizedUpdates.capacity);
       }
       
-      console.error('Update event error:', error);
-      res.status(500).json({ message: error.message });
+      // Ensure boolean fields are actually booleans
+      if (sanitizedUpdates.is_ongoing !== undefined) {
+        sanitizedUpdates.is_ongoing = Boolean(sanitizedUpdates.is_ongoing);
+      }
+      
+      // Format dates if present
+      if (sanitizedUpdates.start_date) {
+        sanitizedUpdates.start_date = new Date(sanitizedUpdates.start_date).toISOString();
+      }
+      
+      if (sanitizedUpdates.end_date) {
+        sanitizedUpdates.end_date = new Date(sanitizedUpdates.end_date).toISOString();
+      }
+      
+      console.log('Sanitized updates:', JSON.stringify(sanitizedUpdates));
+      
+      const updatedEvent = await eventModel.updateEvent(id, sanitizedUpdates, userId);
+      
+      console.log('Event updated successfully, returning response');
+      res.status(200).json({
+        success: true,
+        data: updatedEvent
+      });
+    } catch (error) {
+      console.error('Error in updateEvent controller:', error.message);
+      
+      if (error.message === 'You are not authorized to update this event') {
+        return res.status(403).json({
+          success: false,
+          error: 'You are not authorized to update this event'
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   },
   

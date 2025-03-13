@@ -14,8 +14,9 @@ dotenv.config();
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
-const authRoutes = require('./routes/auth');
+
 const protectedRoutes = require('./routes/protected');
+const eventRoutes = require('./routes/eventRoutes');
 
 // Initialize Express app
 const app = express();
@@ -35,8 +36,6 @@ app.use(cors({
   credentials: true // Important for cookies
 }));
 
-
-
 // Routes
 app.get('/', (req, res) => {
   res.json({ message: 'HandsOn API is running' });
@@ -44,7 +43,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
+
 app.use('/api', protectedRoutes);
 app.use('/api/events', eventRoutes);
 

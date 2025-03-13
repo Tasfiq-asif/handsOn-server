@@ -1,39 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
-const auth = require('../middleware/auth');
-
-// Database connection
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'handsOn',
-  password: process.env.DB_PASSWORD || 'postgres',
-  port: process.env.DB_PORT || 5432,
-});
+const { protect } = require('../middleware/authMiddleware');
+const userModel = require('../models/userModel');
 
 // Get current user
-router.get('/user', auth, async (req, res) => {
+router.get('/user', protect, async (req, res) => {
   try {
-    const user = await pool.query(
-      'SELECT id, username, email FROM users WHERE id = $1',
-      [req.user.id]
-    );
+    const userId = req.user.id;
+    const profile = await userModel.getUserProfile(userId);
     
-    if (user.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!profile) {
+      return res.status(200).json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          profile_complete: false
+        }
+      });
     }
     
-    res.json(user.rows[0]);
+    res.status(200).json({ 
+      user: {
+        ...profile,
+        profile_complete: true
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
-});
-
-// Example protected route
-router.get('/data', auth, (req, res) => {
-  res.json({ message: 'This is protected data' });
 });
 
 module.exports = router; 

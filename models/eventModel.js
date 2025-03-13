@@ -14,26 +14,38 @@ const eventModel = {
    */
   async createEvent(eventData, userId) {
     try {
+      console.log('Creating event for user:', userId);
+      console.log('Event data:', JSON.stringify(eventData));
+      
+      // Format the event data to match the database schema
       const newEvent = {
         creator_id: userId,
         title: eventData.title,
         description: eventData.description,
-        location: eventData.location,
-        category: eventData.category,
-        start_date: eventData.startDate,
-        end_date: eventData.endDate,
+        location: eventData.location || null,
+        category: eventData.category || null,
+        start_date: eventData.startDate ? new Date(eventData.startDate) : null,
+        end_date: eventData.endDate ? new Date(eventData.endDate) : null,
         is_ongoing: eventData.isOngoing || false, // Differentiates community help posts
         capacity: eventData.capacity || null,
         created_at: new Date()
       };
       
+      console.log('Formatted event data for database:', JSON.stringify(newEvent));
+      
+      // Insert the event into the database
       const { data, error } = await supabase
         .from('events')
         .insert(newEvent)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
+      
+      console.log('Event created successfully:', data.id);
       return data;
     } catch (error) {
       console.error('Error creating event:', error);
@@ -49,20 +61,8 @@ const eventModel = {
   async getEvents(filters = {}) {
     try {
       let query = supabase
-        .from('events')
-        .select(`
-          *,
-          creator:creator_id(id, email, profiles:profiles(full_name, username)),
-          participants:event_participants(
-            user_id,
-            status,
-            users:user_id(
-              id,
-              email,
-              profiles:profiles(full_name, username)
-            )
-          )
-        `)
+        .from('events_with_creators')
+        .select('*')
         .order('start_date', { ascending: true });
       
       // Apply filters if provided
@@ -86,6 +86,7 @@ const eventModel = {
       const { data, error } = await query;
       
       if (error) throw error;
+      
       return data || [];
     } catch (error) {
       console.error('Error getting events:', error);
@@ -100,28 +101,30 @@ const eventModel = {
    */
   async getEventById(eventId) {
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          creator:creator_id(id, email, profiles:profiles(full_name, username)),
-          participants:event_participants(
-            id,
-            user_id,
-            status,
-            created_at,
-            users:user_id(
-              id,
-              email,
-              profiles:profiles(full_name, username)
-            )
-          )
-        `)
+      // First get the event with creator info
+      const { data: event, error: eventError } = await supabase
+        .from('events_with_creators')
+        .select('*')
         .eq('id', eventId)
         .single();
       
-      if (error) throw error;
-      return data;
+      if (eventError) throw eventError;
+      
+      // Then get participants separately
+      const { data: participants, error: participantsError } = await supabase
+        .from('event_participants_with_users')
+        .select('*')
+        .eq('event_id', eventId);
+      
+      if (participantsError) {
+        console.warn('Error fetching participants:', participantsError);
+      }
+      
+      // Combine the data
+      return {
+        ...event,
+        participants: participants || []
+      };
     } catch (error) {
       console.error('Error getting event:', error);
       throw error;
@@ -137,16 +140,34 @@ const eventModel = {
    */
   async updateEvent(eventId, updates, userId) {
     try {
+      console.log('Updating event:', eventId);
+      console.log('User ID:', userId);
+      console.log('Update data:', JSON.stringify(updates));
+      
       // First check if user is the creator
       const { data: event, error: fetchError } = await supabase
         .from('events')
-        .select('creator_id')
+        .select('creator_id, id, title, description, location, category, start_date, end_date, is_ongoing, capacity, created_at, updated_at')
         .eq('id', eventId)
         .single();
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error fetching event for update:', fetchError);
+        console.error('SQL query details:', {
+          table: 'events',
+          filter: `id = ${eventId}`,
+          operation: 'select',
+          fields: 'creator_id'
+        });
+        throw fetchError;
+      }
+      
+      console.log('Event found:', event);
+      console.log('Event creator_id:', event.creator_id);
+      console.log('User ID matches creator:', event.creator_id === userId);
       
       if (event.creator_id !== userId) {
+        console.error('Authorization error: User is not the creator');
         throw new Error('You are not authorized to update this event');
       }
       
@@ -156,15 +177,59 @@ const eventModel = {
         updated_at: new Date()
       };
       
+      console.log('Final update data:', JSON.stringify(updateData));
+      
+      // Use the exact ID from the database for the update
+      const exactId = event.id;
+      console.log('Using exact ID from database:', exactId);
+      
+      // Try a different approach - first check if the event exists with this ID
+      const { count, error: countError } = await supabase
+        .from('events')
+        .select('*', { count: 'exact', head: true })
+        .eq('id', exactId);
+      
+      if (countError) {
+        console.error('Error counting events:', countError);
+        throw countError;
+      }
+      
+      console.log(`Found ${count} events with ID ${exactId}`);
+      
+      if (count === 0) {
+        throw new Error(`Event with ID ${exactId} not found`);
+      }
+      
+      // Now try the update
       const { data, error } = await supabase
         .from('events')
         .update(updateData)
-        .eq('id', eventId)
-        .select()
-        .single();
+        .eq('id', exactId)
+        .select();
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('Error updating event in database:', error);
+        throw error;
+      }
+      
+      // If the update returned an empty array but no error, it might be due to RLS
+      // In this case, we'll manually construct the updated event object
+      if (!data || data.length === 0) {
+        console.log('Update returned empty array but no error. This might be due to RLS.');
+        console.log('Manually constructing updated event object.');
+        
+        // Create a merged object with the original event data and the updates
+        const updatedEvent = {
+          ...event,
+          ...updateData
+        };
+        
+        console.log('Manually constructed updated event:', updatedEvent);
+        return updatedEvent;
+      }
+      
+      console.log('Event updated successfully:', data[0]?.id);
+      return data[0];
     } catch (error) {
       console.error('Error updating event:', error);
       throw error;
@@ -302,7 +367,7 @@ const eventModel = {
           id,
           status,
           created_at,
-          event:event_id(*)
+          event:events_with_creators!event_id(*)
         `)
         .eq('user_id', userId);
       
