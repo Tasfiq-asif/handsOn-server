@@ -206,14 +206,19 @@ const userController = {
       // User ID is available from auth middleware
       const userId = req.user.id;
       
+      console.log("Getting profile for user ID:", userId);
+      console.log("User object from request:", req.user);
+      
       // Get user profile from our database
       const profile = await userModel.getUserProfile(userId);
       
       if (!profile) {
         // If profile doesn't exist yet, return basic user data
+        console.log("No profile found, returning basic user data");
         return res.status(200).json({
           user: {
             id: req.user.id,
+            user_id: req.user.id, // Add user_id property
             email: req.user.email,
             full_name: req.user.user_metadata?.full_name || '',
             username: req.user.user_metadata?.username || '',
@@ -222,11 +227,19 @@ const userController = {
         });
       }
       
+      console.log("Profile found:", profile);
+      
+      // Ensure profile has user_id property
+      const userProfile = {
+        ...profile,
+        user_id: profile.user_id || userId, // Ensure user_id is set
+        profile_complete: true
+      };
+      
+      // console.log("Returning user profile:", userProfile);
+      
       res.status(200).json({ 
-        user: {
-          ...profile,
-          profile_complete: true
-        }
+        user: userProfile
       });
       
     } catch (error) {

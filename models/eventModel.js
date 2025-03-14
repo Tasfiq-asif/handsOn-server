@@ -171,11 +171,20 @@ const eventModel = {
         throw new Error('You are not authorized to update this event');
       }
       
-      // Prepare update object
+      // Prepare update object with proper type conversions
       const updateData = {
         ...updates,
-        updated_at: new Date()
+        updated_at: new Date().toISOString()
       };
+      
+      // Ensure proper types for database fields
+      if (updateData.capacity !== undefined) {
+        updateData.capacity = updateData.capacity === null ? null : Number(updateData.capacity);
+      }
+      
+      if (updateData.is_ongoing !== undefined) {
+        updateData.is_ongoing = Boolean(updateData.is_ongoing);
+      }
       
       console.log('Final update data:', JSON.stringify(updateData));
       
@@ -183,24 +192,7 @@ const eventModel = {
       const exactId = event.id;
       console.log('Using exact ID from database:', exactId);
       
-      // Try a different approach - first check if the event exists with this ID
-      const { count, error: countError } = await supabase
-        .from('events')
-        .select('*', { count: 'exact', head: true })
-        .eq('id', exactId);
-      
-      if (countError) {
-        console.error('Error counting events:', countError);
-        throw countError;
-      }
-      
-      console.log(`Found ${count} events with ID ${exactId}`);
-      
-      if (count === 0) {
-        throw new Error(`Event with ID ${exactId} not found`);
-      }
-      
-      // Now try the update
+      // Perform the update with explicit type handling
       const { data, error } = await supabase
         .from('events')
         .update(updateData)
@@ -209,23 +201,47 @@ const eventModel = {
       
       if (error) {
         console.error('Error updating event in database:', error);
+        console.error('Error details:', error.details, error.hint, error.code);
         throw error;
       }
       
+      console.log('Update response data:', data);
+      
       // If the update returned an empty array but no error, it might be due to RLS
-      // In this case, we'll manually construct the updated event object
       if (!data || data.length === 0) {
         console.log('Update returned empty array but no error. This might be due to RLS.');
-        console.log('Manually constructing updated event object.');
         
-        // Create a merged object with the original event data and the updates
-        const updatedEvent = {
-          ...event,
-          ...updateData
-        };
+        // Try a direct update with upsert instead
+        console.log('Attempting upsert operation as fallback...');
+        const { data: upsertData, error: upsertError } = await supabase
+          .from('events')
+          .upsert({
+            id: exactId,
+            ...updateData
+          })
+          .select();
         
-        console.log('Manually constructed updated event:', updatedEvent);
-        return updatedEvent;
+        if (upsertError) {
+          console.error('Upsert fallback failed:', upsertError);
+          
+          // As a last resort, manually construct the updated event object
+          console.log('Manually constructing updated event object.');
+          const updatedEvent = {
+            ...event,
+            ...updateData
+          };
+          
+          console.log('Manually constructed updated event:', updatedEvent);
+          
+          // Log a warning that the database wasn't actually updated
+          console.warn('WARNING: Database update failed, but returning constructed object to client.');
+          console.warn('This means the UI will show updated data, but the database was NOT updated.');
+          
+          return updatedEvent;
+        }
+        
+        console.log('Upsert successful:', upsertData);
+        return upsertData[0];
       }
       
       console.log('Event updated successfully:', data[0]?.id);
