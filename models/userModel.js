@@ -112,6 +112,59 @@ const userModel = {
       console.error('Error getting volunteer history:', error);
       throw error;
     }
+  },
+  
+  /**
+   * Ensure a user has a profile, creating one if it doesn't exist
+   * @param {string} userId - The user's ID
+   * @param {Object} userData - Optional user data to use for profile creation
+   * @returns {Object} - The user profile
+   */
+  async ensureUserProfile(userId, userData = {}) {
+    try {
+      // Check if profile exists
+      const existingProfile = await this.getUserProfile(userId);
+      
+      if (existingProfile) {
+        return existingProfile;
+      }
+      
+      // Profile doesn't exist, create one
+      console.log(`Creating profile for user: ${userId}`);
+      
+      // Get user metadata if available
+      let userMetadata = {};
+      if (userData.user_metadata) {
+        userMetadata = userData.user_metadata;
+      }
+      
+      // Prepare profile data
+      const profile = {
+        user_id: userId,
+        full_name: userData.fullName || userData.full_name || userMetadata.full_name || userMetadata.name || '',
+        username: userData.username || userMetadata.username || (userData.email ? userData.email.split('@')[0] : `user_${userId.substring(0, 8)}`),
+        created_at: new Date()
+      };
+      
+      console.log('Creating new profile with data:', profile);
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(profile)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating user profile:', error);
+        throw error;
+      }
+      
+      console.log('Profile created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error ensuring user profile:', error);
+      throw error;
+    }
   }
 };
 

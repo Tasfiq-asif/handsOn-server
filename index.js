@@ -14,9 +14,9 @@ dotenv.config();
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
-
 const protectedRoutes = require('./routes/protected');
 const eventRoutes = require('./routes/eventRoutes');
+const helpRequestRoutes = require('./routes/helpRequestRoutes');
 
 // Initialize Express app
 const app = express();
@@ -43,9 +43,9 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/users', userRoutes);
-
 app.use('/api', protectedRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/help-requests', helpRequestRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
