@@ -66,7 +66,6 @@ const userController = {
           httpOnly: true,
           secure: true,
           sameSite: 'none',
-          domain: '.vercel.app',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
       }
@@ -114,8 +113,8 @@ const userController = {
       // Set token in an HTTP-only cookie with the WORKING configuration
       res.cookie('token', data.session.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
       
@@ -166,8 +165,8 @@ const userController = {
       // Set token in cookie with WORKING configuration
       res.cookie('token', session.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax', // Using the working config
+        secure: true,
+        sameSite: 'none',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
       
