@@ -21,18 +21,22 @@ const userController = {
         return res.status(400).json({ message: 'Please provide all required fields' });
       }
       
-      // Register user with Supabase
+      // Register user with Supabase - no email confirmation required
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName
-          }
+          },
+          // Explicitly disable email confirmation
+          emailConfirm: false
         }
       });
       
       if (error) throw error;
+      
+      console.log('User registered successfully:', data.user.id);
       
       // Create profile in database
       if (data.user) {
@@ -47,6 +51,16 @@ const userController = {
         
         if (profileError) {
           console.error('Error creating profile:', profileError);
+        }
+        
+        // Automatically sign in the user after registration
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (signInError) {
+          console.error('Error signing in after registration:', signInError);
         }
       }
       
