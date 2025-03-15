@@ -193,7 +193,14 @@ const eventController = {
       const { id } = req.params;
       const userId = req.user.id;
       
+      console.log('Delete event request received:');
+      console.log('Event ID:', id);
+      console.log('User ID from request:', userId);
+      console.log('User object:', req.user);
+      
       await eventModel.deleteEvent(id, userId);
+      
+      console.log('Event deleted successfully');
       
       res.status(200).json({
         success: true,
@@ -202,6 +209,7 @@ const eventController = {
     } catch (error) {
       // Handle authorization error separately
       if (error.message.includes('not authorized')) {
+        console.error('Authorization error:', error.message);
         return res.status(403).json({ message: error.message });
       }
       
@@ -276,6 +284,35 @@ const eventController = {
     } catch (error) {
       console.error('Get user events error:', error);
       res.status(500).json({ message: error.message });
+    }
+  },
+  
+  /**
+   * Check if user is registered for an event
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async checkRegistrationStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      
+      console.log(`Checking registration status for user ${userId} and event ${id}`);
+      
+      const isRegistered = await eventModel.checkRegistrationStatus(id, userId);
+      
+      console.log(`Registration status result: ${isRegistered}`);
+      
+      res.status(200).json({
+        success: true,
+        registered: isRegistered
+      });
+    } catch (error) {
+      console.error('Check registration status error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: error.message 
+      });
     }
   }
 };

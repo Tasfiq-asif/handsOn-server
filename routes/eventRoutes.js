@@ -20,8 +20,9 @@ router.delete('/:id', protect, eventController.deleteEvent);
 // Event registration routes
 router.post('/:id/register', protect, eventController.registerForEvent);
 router.post('/:id/cancel', protect, eventController.cancelRegistration);
+router.get('/:id/registration-status', protect, eventController.checkRegistrationStatus);
 
 // User events
 router.get('/user/registered', protect, eventController.getUserEvents);
 
-module.exports = router; 
+module.exports = router;

@@ -120,6 +120,14 @@ const eventModel = {
         console.warn('Error fetching participants:', participantsError);
       }
       
+      // Log participant data for debugging
+      if (participants && participants.length > 0) {
+        console.log('Participants found:', participants.length);
+        console.log('First participant sample:', JSON.stringify(participants[0], null, 2));
+      } else {
+        console.log('No participants found for event:', eventId);
+      }
+      
       // Combine the data
       return {
         ...event,
@@ -164,9 +172,15 @@ const eventModel = {
       
       console.log('Event found:', event);
       console.log('Event creator_id:', event.creator_id);
-      console.log('User ID matches creator:', event.creator_id === userId);
       
-      if (event.creator_id !== userId) {
+      // Convert both IDs to strings before comparison to match RLS policy
+      const userIdStr = String(userId);
+      const creatorIdStr = String(event.creator_id);
+      
+      console.log('String comparison:', userIdStr, '===', creatorIdStr);
+      console.log('User ID matches creator:', userIdStr === creatorIdStr);
+      
+      if (userIdStr !== creatorIdStr) {
         console.error('Authorization error: User is not the creator');
         throw new Error('You are not authorized to update this event');
       }
@@ -260,6 +274,9 @@ const eventModel = {
    */
   async deleteEvent(eventId, userId) {
     try {
+      console.log('Attempting to delete event:', eventId);
+      console.log('User ID for delete operation:', userId);
+      
       // First check if user is the creator
       const { data: event, error: fetchError } = await supabase
         .from('events')
@@ -267,11 +284,26 @@ const eventModel = {
         .eq('id', eventId)
         .single();
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error fetching event for delete:', fetchError);
+        throw fetchError;
+      }
       
-      if (event.creator_id !== userId) {
+      console.log('Event found for delete:', event);
+      console.log('Event creator_id:', event.creator_id);
+      
+      // Convert both IDs to strings before comparison to match RLS policy
+      const userIdStr = String(userId);
+      const creatorIdStr = String(event.creator_id);
+      
+      console.log('String comparison:', userIdStr, '===', creatorIdStr);
+      
+      if (userIdStr !== creatorIdStr) {
+        console.error('Authorization error: User is not the creator');
         throw new Error('You are not authorized to delete this event');
       }
+      
+      console.log('Authorization passed, deleting event');
       
       // Delete the event
       const { error } = await supabase
@@ -279,7 +311,12 @@ const eventModel = {
         .delete()
         .eq('id', eventId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error during delete operation:', error);
+        throw error;
+      }
+      
+      console.log('Event deleted successfully');
       return true;
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -397,6 +434,40 @@ const eventModel = {
       return data || [];
     } catch (error) {
       console.error('Error getting user events:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Check if user is registered for an event
+   * @param {string} eventId - The event ID
+   * @param {string} userId - The user ID
+   * @returns {boolean} - Whether the user is registered
+   */
+  async checkRegistrationStatus(eventId, userId) {
+    try {
+      console.log(`Checking if user ${userId} is registered for event ${eventId}`);
+      
+      const { data, error } = await supabase
+        .from('event_participants')
+        .select('status')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .eq('status', 'registered')
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking registration status:', error);
+        throw error;
+      }
+      
+      // If data exists, user is registered
+      const isRegistered = !!data;
+      console.log(`Registration status for user ${userId} in event ${eventId}: ${isRegistered}`);
+      
+      return isRegistered;
+    } catch (error) {
+      console.error('Error checking registration status:', error);
       throw error;
     }
   }
