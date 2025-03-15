@@ -31,7 +31,8 @@ console.log('CORS origin:', process.env.CLIENT_URL || 'http://localhost:5173');
 app.use(cors({
   origin: [
     process.env.CLIENT_URL || 'http://localhost:5173', 
-    'http://localhost:5174'  // Add backup port
+    'http://localhost:5174',  // Add backup port
+    'https://hands-on-client.vercel.app' // Add Vercel deployment URL
   ],
   credentials: true // Important for cookies
 }));
@@ -56,8 +57,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start the server
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start the server if not being imported (for local development)
+if (process.env.NODE_ENV !== 'production' || !module.parent) {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express app for Vercel serverless deployment
+module.exports = app;

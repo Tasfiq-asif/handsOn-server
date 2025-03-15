@@ -329,3 +329,67 @@ The server can be deployed to various platforms:
 - View logs in development: Console output
 - View logs in production: `heroku logs --tail` (if using Heroku)
 - Use a monitoring service like New Relic or Datadog for production monitoring
+
+## 8. Git Workflow
+
+This project follows a feature branch workflow with pull requests for code review and integration.
+
+### Current Branches
+
+- `main` - Production-ready code
+- `feature/add-jwt-authentication` - JWT authentication implementation
+- `feature/event-management` - Event management functionality
+
+### Merging Feature Branches via Pull Requests
+
+1. **Ensure your feature branch is up to date with main**:
+
+   ```bash
+   git checkout feature/your-branch
+   git pull origin main
+   # Resolve any conflicts if they occur
+   ```
+
+2. **Push your changes to the remote repository**:
+
+   ```bash
+   git push origin feature/your-branch
+   ```
+
+3. **Create a Pull Request (PR)**:
+
+   - Go to your GitHub repository
+   - Click on "Pull requests" tab
+   - Click "New pull request"
+   - Set "base" branch to `main`
+   - Set "compare" branch to your feature branch
+   - Click "Create pull request"
+   - Add a descriptive title and description
+   - Request reviewers if needed
+
+4. **Code Review Process**:
+
+   - Reviewers will examine your code and provide feedback
+   - Address any comments or requested changes
+   - Push additional commits to your feature branch as needed
+
+5. **Merge the Pull Request**:
+
+   - Once approved, click "Merge pull request"
+   - Choose the appropriate merge strategy:
+     - Merge commit: Preserves all commits history
+     - Squash and merge: Combines all commits into one
+     - Rebase and merge: Applies changes without a merge commit
+   - Click "Confirm merge"
+
+6. **Delete the Feature Branch (Optional)**:
+   - After successful merge, you can delete the feature branch
+   - This keeps the repository clean
+
+### Branch Protection Rules (Recommended)
+
+Consider setting up branch protection rules for the `main` branch:
+
+- Require pull request reviews before merging
+- Require status checks to pass before merging
+- Restrict who can push to the branch
