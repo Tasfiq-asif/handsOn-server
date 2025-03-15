@@ -21,21 +21,18 @@ const userController = {
         return res.status(400).json({ message: 'Please provide all required fields' });
       }
       
-      // Register user with Supabase - using correct parameters
+      // Simplest possible signup approach
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            full_name: fullName
-          }
-          // No additional options that might force email verification
-        }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Signup error:', error);
+        throw error;
+      }
       
-      console.log('User registered successfully:', data.user.id);
+      console.log('User registered successfully:', data.user?.id);
       
       // Create profile in database
       if (data.user) {
@@ -67,8 +64,9 @@ const userController = {
       if (data.session) {
         res.cookie('token', data.session.access_token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
+          secure: true,
+          sameSite: 'none',
+          domain: '.vercel.app',
           maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
       }
