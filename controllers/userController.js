@@ -21,16 +21,15 @@ const userController = {
         return res.status(400).json({ message: 'Please provide all required fields' });
       }
       
-      // Register user with Supabase - no email confirmation required
+      // Register user with Supabase - using correct parameters
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName
-          },
-          // Explicitly disable email confirmation
-          emailConfirm: false
+          }
+          // No additional options that might force email verification
         }
       });
       
