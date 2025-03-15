@@ -29,12 +29,10 @@ app.use(cookieParser());
 console.log('CORS origin:', process.env.CLIENT_URL || 'http://localhost:5173');
 
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:5173', 
-    'http://localhost:5174',  // Add backup port
-    'https://hands-on-client.vercel.app' // Add Vercel deployment URL
-  ],
-  credentials: true // Important for cookies
+  origin: 'https://hands-on-client.vercel.app',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
 }));
 
 // Routes
