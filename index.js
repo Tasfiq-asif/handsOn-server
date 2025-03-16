@@ -25,14 +25,25 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// Log the CORS configuration
-console.log('CORS origin:', process.env.CLIENT_URL || 'http://localhost:5173');
+// Simple CORS setup that works for both local and production
+const allowedOrigins = [
+  'https://hands-on-client.vercel.app',  // Your production site
+  'http://localhost:5173'                // Local development
+];
 
 app.use(cors({
-  origin: 'https://hands-on-client.vercel.app',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // Routes

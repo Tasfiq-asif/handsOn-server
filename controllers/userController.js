@@ -329,8 +329,12 @@ const userController = {
    */
   async logout(req, res) {
     try {
-      // Clear the cookie
-      res.clearCookie('token');
+      // Clear the cookie - works for both local and production
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none'
+      });
       
       res.status(200).json({
         success: true,
